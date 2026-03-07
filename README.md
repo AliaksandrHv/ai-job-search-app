@@ -12,6 +12,17 @@ The product is designed to support a practical end-to-end workflow:
 
 Jobs -> Recruiters -> Interviews -> Follow-ups -> Activity Timeline -> Insights -> Backup/Restore
 
+## Screenshots
+
+### Dashboard
+![Dashboard](docs/dashboard.png)
+
+### Applications
+![Applications](docs/applications.png)
+
+### Interviews
+![Interviews](docs/interviews.png)
+
 ## MVP Features
 
 ### Jobs
