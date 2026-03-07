@@ -1,36 +1,175 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Job Search Copilot
 
-## Getting Started
+A local-first job search management app built with Next.js, React, and Tailwind.
 
-First, run the development server:
+The product is designed to support a practical end-to-end workflow:
+
+Jobs -> Recruiters -> Interviews -> Follow-ups -> Activity Timeline -> Insights -> Backup/Restore
+
+## MVP Features
+
+### Jobs
+- Add, edit, delete jobs
+- Required validation for company and title
+- Status tracking (`Saved`, `Applied`, `Interview`, `Rejected`)
+- Optional job link support
+- Follow-up fields and actions
+
+### Recruiters
+- Add, edit, delete recruiter contacts
+- Search and sort recruiters
+- Track contact dates and next follow-up
+- Link/unlink recruiter to a job
+
+### Interviews
+- Add, edit, delete interviews
+- Link interviews to jobs and optionally recruiters
+- Status tracking (`Scheduled`, `Completed`, `Cancelled`)
+- Filters, search, and sort modes
+- "Needs outcome update" detection for past scheduled interviews
+
+### Follow-ups
+- Job-level follow-up status and dates
+- Quick actions:
+  - set/reschedule follow-up
+  - mark contacted today
+  - mark follow-up done
+  - clear follow-up
+- Dashboard cards for due/overdue visibility
+
+### Activity Timeline
+- Auto-logs key product actions
+- Dashboard "Recent Activity" widget
+- Job Details and Recruiter Details timelines
+- Persists in localStorage with cap to avoid unbounded growth
+
+### Backup / Restore
+- Export full app data to JSON
+- Import JSON backup with validation and overwrite confirmation
+- Immediate UI refresh after successful restore
+
+## Tech Stack
+
+- Next.js 16 (App Router)
+- React 19
+- TypeScript
+- Tailwind CSS v4
+- localStorage persistence (no backend in MVP)
+
+## Architecture Overview
+
+Current implementation is intentionally single-page and local-first:
+
+- Main UI and state orchestration: `app/page.tsx`
+- Global styles/theme tokens: `app/globals.css`
+- App shell metadata: `app/layout.tsx`
+
+Data lifecycle:
+
+1. Hydrate state from localStorage on app load
+2. Normalize records to keep backward compatibility
+3. Persist each entity set through dedicated `useEffect` syncs
+4. Render views (Dashboard, Applications, Recruiters, Interviews)
+5. Open detail/edit panels for focused record operations
+
+## Data Model (MVP)
+
+### Job
+- `id`
+- `company`
+- `title`
+- `status`
+- `note`
+- `jobLink?`
+- `linkedRecruiterId?`
+- `nextFollowUpDate?`
+- `lastContactDate?`
+- `followUpStatus?`
+- `createdAt?`
+
+### Recruiter
+- `id`
+- `name`
+- `company`
+- `role`
+- `email`
+- `profileLink?`
+- `notes`
+- `lastContactDate?`
+- `nextFollowUpDate?`
+- `createdAt?`
+
+### Interview
+- `id`
+- `jobId`
+- `recruiterId?`
+- `interviewType`
+- `status`
+- `scheduledAt`
+- `notes`
+- `createdAt?`
+- `updatedAt?`
+
+### ActivityEvent
+- `id`
+- `type`
+- `timestamp`
+- `message`
+- `jobId?`
+- `recruiterId?`
+- `interviewId?`
+
+## Persistence Keys
+
+- `ai_job_search_jobs_v1`
+- `ai_job_search_recruiters_v1`
+- `ai_job_search_interviews_v1`
+- `ai_job_search_activity_v1`
+
+## Run Locally
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Available Scripts
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run build
+npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Project Structure (Current)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+app/
+  globals.css
+  layout.tsx
+  page.tsx
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Portfolio Notes
 
-## Learn More
+This project demonstrates:
 
-To learn more about Next.js, take a look at the following resources:
+- Product-driven feature sequencing from MVP to usability polish
+- Strong local data modeling and backward-compatible persistence
+- Connected workflow across entities (jobs, recruiters, interviews, follow-ups)
+- Operational UX (dashboard insights, details panels, quick actions)
+- Practical data portability via JSON backup/restore
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## MVP Status
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+MVP is complete and functional as a standalone local-first product.
 
-## Deploy on Vercel
+Potential next iterations:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Modular code split (`components/`, `hooks/`, `lib/`, `types/`)
+- richer keyboard shortcuts
+- priority/pinned jobs
+- enhanced analytics widgets
