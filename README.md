@@ -1,5 +1,11 @@
 # Job Search Copilot
 
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
+![Version](https://img.shields.io/badge/version-v1.0-blue)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![Tailwind](https://img.shields.io/badge/TailwindCSS-v4-38BDF8?logo=tailwindcss&logoColor=white)
+
 A local-first job search management app built with Next.js, React, and Tailwind.
 
 The product is designed to support a practical end-to-end workflow:
