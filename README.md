@@ -12,6 +12,10 @@ The product is designed to support a practical end-to-end workflow:
 
 Jobs -> Recruiters -> Interviews -> Follow-ups -> Activity Timeline -> Insights -> Backup/Restore
 
+## Live Repository
+
+https://github.com/AliaksandrHv/ai-job-search-app
+
 ## Screenshots
 
 ### Dashboard
