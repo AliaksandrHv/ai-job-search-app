@@ -456,6 +456,8 @@ export default function Home() {
   const [importFeedback, setImportFeedback] = useState("");
   const [importError, setImportError] = useState("");
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const addJobSectionRef = useRef<HTMLElement | null>(null);
+  const companyInputRef = useRef<HTMLInputElement | null>(null);
 
   const [company, setCompany] = useState("");
   const [title, setTitle] = useState("");
@@ -1494,6 +1496,16 @@ export default function Home() {
     importInputRef.current.click();
   }
 
+  function handleStartBuilding() {
+    addJobSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+    window.setTimeout(() => {
+      companyInputRef.current?.focus();
+    }, 180);
+  }
+
   async function handleImportFileSelected(event: ChangeEvent<HTMLInputElement>) {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
@@ -2515,7 +2527,10 @@ export default function Home() {
                     )}
                   </div>
                   <div className="mt-7 flex flex-wrap gap-3">
-                    <button className="w-full rounded-xl bg-[var(--button-primary-bg)] px-5 py-3 text-sm font-medium text-[var(--button-primary-text)] transition hover:brightness-95 sm:w-auto">
+                    <button
+                      onClick={handleStartBuilding}
+                      className="w-full rounded-xl bg-[var(--button-primary-bg)] px-5 py-3 text-sm font-medium text-[var(--button-primary-text)] transition hover:brightness-95 sm:w-auto"
+                    >
                       Start Building
                     </button>
                     <button className="w-full rounded-xl border border-[var(--button-secondary-border)] bg-[var(--button-secondary-bg)] px-5 py-3 text-sm font-medium text-[var(--button-secondary-text)] transition hover:bg-[var(--button-secondary-hover)] sm:w-auto">
@@ -2778,7 +2793,10 @@ export default function Home() {
                   </article>
                 </section>
 
-                <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-6">
+                <section
+                  ref={addJobSectionRef}
+                  className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-6"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-2xl font-semibold">Recent Activity</h3>
                     <span className="rounded-full border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">
@@ -2827,6 +2845,7 @@ export default function Home() {
 
                   <div className="mt-5 grid gap-3 md:grid-cols-2">
                     <input
+                      ref={companyInputRef}
                       value={company}
                       onChange={(event) => {
                         setCompany(event.target.value);
