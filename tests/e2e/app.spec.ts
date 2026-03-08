@@ -103,6 +103,12 @@ function getPipelineSection(page: Page) {
   });
 }
 
+function getApplicationsSection(page: Page) {
+  return page.locator("section.rounded-2xl").filter({
+    has: page.getByRole("heading", { name: "Applications" }),
+  });
+}
+
 async function expectPipelineCount(page: Page, status: string, count: number) {
   const card = getPipelineSection(page)
     .locator("article")
@@ -174,6 +180,44 @@ test("edits and deletes a job from Applications with confirmation", async ({ pag
   page.once("dialog", (dialog) => dialog.accept());
   await updatedRow.getByRole("button", { name: "Delete" }).click();
   await expect(updatedRow).toHaveCount(0);
+});
+
+test("searches jobs by company and title in Applications", async ({ page }) => {
+  await page.getByRole("button", { name: "Applications" }).click();
+
+  const applications = getApplicationsSection(page);
+  const searchInput = applications.getByPlaceholder("Search company or title");
+
+  await searchInput.fill("Orbit AI");
+  await expect(applications.locator("article").filter({ hasText: "Orbit AI - Machine Learning Engineer" })).toBeVisible();
+  await expect(applications.locator("article").filter({ hasText: "Acme Robotics - QA Automation Engineer" })).toHaveCount(0);
+
+  await searchInput.fill("Software Engineer");
+  await expect(applications.locator("article").filter({ hasText: "Nova Systems - Software Engineer" })).toBeVisible();
+  await expect(applications.locator("article").filter({ hasText: "Delta Labs - QA Engineer" })).toHaveCount(0);
+
+  await searchInput.fill("No Matching Role");
+  await expect(applications.getByText("No applications match your filters. Try clearing search or status.")).toBeVisible();
+});
+
+test("filters jobs by status in Applications", async ({ page }) => {
+  await page.getByRole("button", { name: "Applications" }).click();
+
+  const applications = getApplicationsSection(page);
+  const statusFilter = applications.locator("select").first();
+
+  await statusFilter.selectOption("Interview");
+  await expect(applications.locator("article").filter({ hasText: "Nova Systems - Software Engineer" })).toBeVisible();
+  await expect(applications.locator("article").filter({ hasText: "Acme Robotics - QA Automation Engineer" })).toHaveCount(0);
+  await expect(applications.locator("article").filter({ hasText: "Delta Labs - QA Engineer" })).toHaveCount(0);
+
+  await statusFilter.selectOption("Rejected");
+  await expect(applications.locator("article").filter({ hasText: "Delta Labs - QA Engineer" })).toBeVisible();
+  await expect(applications.locator("article").filter({ hasText: "Nova Systems - Software Engineer" })).toHaveCount(0);
+
+  await statusFilter.selectOption("All");
+  await expect(applications.locator("article").filter({ hasText: "Acme Robotics - QA Automation Engineer" })).toBeVisible();
+  await expect(applications.locator("article").filter({ hasText: "Orbit AI - Machine Learning Engineer" })).toBeVisible();
 });
 
 test("exports backup JSON and imports replacement data into UI immediately", async ({
