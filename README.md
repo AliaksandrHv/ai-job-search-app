@@ -20,6 +20,27 @@ https://ai-job-search-app.vercel.app
 
 https://github.com/AliaksandrHv/ai-job-search-app
 
+## Demo
+
+- Live app: https://ai-job-search-app.vercel.app
+- Walkthrough video (60-90 seconds): add your YouTube or GitHub video URL here
+
+Suggested walkthrough order:
+
+1. Open dashboard
+2. Add a job
+3. Edit the job
+4. Delete a job
+5. Show filtering and search
+6. Show recruiter tracking
+7. Refresh to confirm persistence
+
+## Problem
+
+Managing job applications across multiple companies can become scattered and hard to track.
+This project was built to provide one operational dashboard for applications, recruiters,
+interviews, follow-ups, and recent activity.
+
 ## Screenshots
 
 ### Dashboard
@@ -81,6 +102,13 @@ https://github.com/AliaksandrHv/ai-job-search-app
 - Tailwind CSS v4
 - localStorage persistence (no backend in MVP)
 
+## Tech Decisions
+
+- Next.js: fast product iteration with a production-ready framework
+- Tailwind CSS: rapid UI development with consistent design primitives
+- localStorage: simple persistence for MVP speed and offline-friendly behavior
+- Playwright: end-to-end coverage for core user flows
+
 ## Architecture Overview
 
 Current implementation is intentionally single-page and local-first:
@@ -88,6 +116,15 @@ Current implementation is intentionally single-page and local-first:
 - Main UI and state orchestration: `app/page.tsx`
 - Global styles/theme tokens: `app/globals.css`
 - App shell metadata: `app/layout.tsx`
+
+System view:
+
+```text
+User
+  -> Next.js Frontend
+    -> React State
+      -> localStorage
+```
 
 Data lifecycle:
 
@@ -168,6 +205,20 @@ npm run lint
 npm run build
 npm run start
 ```
+
+## Roadmap
+
+v1.1
+- backend persistence and authentication
+- shared data across devices
+
+v1.2
+- AI resume tailoring assistant
+- interview question generation support
+
+v1.3
+- recruiter follow-up reminders
+- deeper analytics and trend tracking
 
 ## Project Structure (Current)
 
