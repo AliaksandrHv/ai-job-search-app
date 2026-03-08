@@ -23,6 +23,10 @@ https://ai-job-search-app.vercel.app
 
 https://github.com/AliaksandrHv/ai-job-search-app
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history and semantic versioning notes.
+
 ## Demo
 
 - Live app: https://ai-job-search-app.vercel.app
