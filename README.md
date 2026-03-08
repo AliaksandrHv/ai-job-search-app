@@ -1,7 +1,7 @@
 # Job Search Copilot
 
 [![CI](https://img.shields.io/github/actions/workflow/status/AliaksandrHv/ai-job-search-app/e2e-playwright.yml?label=CI)](https://github.com/AliaksandrHv/ai-job-search-app/actions/workflows/e2e-playwright.yml)
-[![Playwright Tests](https://img.shields.io/github/actions/workflow/status/AliaksandrHv/ai-job-search-app/e2e-playwright.yml?label=Playwright%20Tests)](https://github.com/AliaksandrHv/ai-job-search-app/actions/workflows/e2e-playwright.yml)
+[![Playwright Passing](https://img.shields.io/github/actions/workflow/status/AliaksandrHv/ai-job-search-app/e2e-playwright.yml?branch=main&label=Playwright%20Passing)](https://github.com/AliaksandrHv/ai-job-search-app/actions/workflows/e2e-playwright.yml)
 [![Deployment](https://img.shields.io/website?url=https%3A%2F%2Fai-job-search-app.vercel.app&label=Deployment&up_message=live&down_message=down)](https://ai-job-search-app.vercel.app)
 [![License](https://img.shields.io/github/license/AliaksandrHv/ai-job-search-app)](https://github.com/AliaksandrHv/ai-job-search-app)
 ![Version](https://img.shields.io/badge/version-v1.0-blue)
