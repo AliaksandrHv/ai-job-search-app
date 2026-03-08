@@ -11,6 +11,8 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:3000",
     trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    video: process.env.CI ? "on" : "off",
   },
   projects: [
     {
@@ -25,4 +27,3 @@ export default defineConfig({
     timeout: 120_000,
   },
 });
-

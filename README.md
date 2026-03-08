@@ -206,6 +206,31 @@ npm run build
 npm run start
 ```
 
+## Testing
+
+End-to-end tests are implemented using Playwright.
+
+Run tests locally:
+
+```bash
+npm run test:e2e
+```
+
+Covered flows:
+
+- Add job
+- Edit job
+- Delete job
+- Search jobs
+- Filter by status
+
+CI automation:
+
+- GitHub Actions workflow: `.github/workflows/e2e-playwright.yml`
+- Runs on every push and pull request to `main`
+- Uploads Playwright artifacts (`playwright-report/` and `test-results/`)
+- Includes recorded browser sessions as test video artifacts
+
 ## Roadmap
 
 v1.1
