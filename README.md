@@ -23,7 +23,7 @@ https://github.com/AliaksandrHv/ai-job-search-app
 ## Demo
 
 - Live app: https://ai-job-search-app.vercel.app
-- Walkthrough video (WebM): https://github.com/AliaksandrHv/ai-job-search-app/blob/main/docs/demo-walkthrough.webm
+- Walkthrough video (YouTube): https://youtu.be/myvHFwZlb8s
 
 Suggested walkthrough order:
 
