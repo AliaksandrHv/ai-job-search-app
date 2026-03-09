@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   interviews: "ai_job_search_interviews_v1",
   activities: "ai_job_search_activity_v1",
 } as const;
+const AI_COPILOT_OVERRIDE_KEY = "ai_job_search_ai_copilot_override";
 
 const SEEDED_DATA = {
   jobs: [
@@ -81,10 +82,17 @@ const SEEDED_DATA = {
   activities: [],
 };
 
-async function seedStorage(page: Page) {
+async function seedStorage(page: Page, enableAiCopilot = false) {
   await page.addInitScript(
-    ({ keys, data }) => {
+    ({ keys, data, enableAiCopilot, aiOverrideKey }) => {
       const markerKey = "__e2e_seeded__";
+
+      if (enableAiCopilot) {
+        window.localStorage.setItem(aiOverrideKey, "true");
+      } else {
+        window.localStorage.removeItem(aiOverrideKey);
+      }
+
       if (window.localStorage.getItem(markerKey) === "1") return;
 
       window.localStorage.setItem(keys.jobs, JSON.stringify(data.jobs));
@@ -93,8 +101,18 @@ async function seedStorage(page: Page) {
       window.localStorage.setItem(keys.activities, JSON.stringify(data.activities));
       window.localStorage.setItem(markerKey, "1");
     },
-    { keys: STORAGE_KEYS, data: SEEDED_DATA }
+    {
+      keys: STORAGE_KEYS,
+      data: SEEDED_DATA,
+      enableAiCopilot,
+      aiOverrideKey: AI_COPILOT_OVERRIDE_KEY,
+    }
   );
+}
+
+async function visitApp(page: Page, enableAiCopilot = false) {
+  await seedStorage(page, enableAiCopilot);
+  await page.goto("/");
 }
 
 function getPipelineSection(page: Page) {
@@ -117,12 +135,9 @@ async function expectPipelineCount(page: Page, status: string, count: number) {
   await expect(card).toContainText(String(count));
 }
 
-test.beforeEach(async ({ page }) => {
-  await seedStorage(page);
-  await page.goto("/");
-});
-
 test("shows live pipeline summary counts near the top of dashboard", async ({ page }) => {
+  await visitApp(page);
+
   const pipeline = getPipelineSection(page);
   await expect(pipeline.getByRole("heading", { name: "Pipeline Summary" })).toBeVisible();
 
@@ -135,6 +150,8 @@ test("shows live pipeline summary counts near the top of dashboard", async ({ pa
 test("validates required job fields and persists a newly added job after reload", async ({
   page,
 }) => {
+  await visitApp(page);
+
   const addJobSection = page.locator("section").filter({
     has: page.getByRole("heading", { name: "Add Job" }),
   });
@@ -155,6 +172,7 @@ test("validates required job fields and persists a newly added job after reload"
 });
 
 test("edits and deletes a job from Applications with confirmation", async ({ page }) => {
+  await visitApp(page);
   await page.getByRole("button", { name: "Applications" }).click();
 
   const initialRow = page.locator("article").filter({
@@ -183,6 +201,7 @@ test("edits and deletes a job from Applications with confirmation", async ({ pag
 });
 
 test("searches jobs by company and title in Applications", async ({ page }) => {
+  await visitApp(page);
   await page.getByRole("button", { name: "Applications" }).click();
 
   const applications = getApplicationsSection(page);
@@ -201,6 +220,7 @@ test("searches jobs by company and title in Applications", async ({ page }) => {
 });
 
 test("filters jobs by status in Applications", async ({ page }) => {
+  await visitApp(page);
   await page.getByRole("button", { name: "Applications" }).click();
 
   const applications = getApplicationsSection(page);
@@ -223,6 +243,8 @@ test("filters jobs by status in Applications", async ({ page }) => {
 test("exports backup JSON and imports replacement data into UI immediately", async ({
   page,
 }) => {
+  await visitApp(page);
+
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Export Data" }).click(),
@@ -303,6 +325,8 @@ test("exports backup JSON and imports replacement data into UI immediately", asy
 test("rejects malformed JSON on import without overwriting existing data", async ({
   page,
 }) => {
+  await visitApp(page);
+
   const fileChooserPromise = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Import Data" }).click();
   const fileChooser = await fileChooserPromise;
@@ -315,4 +339,82 @@ test("rejects malformed JSON on import without overwriting existing data", async
   await expect(page.getByText("Invalid backup file")).toBeVisible();
   await expect(page.getByText("Acme Robotics - QA Automation Engineer")).toBeVisible();
   await expectPipelineCount(page, "Saved", 2);
+});
+
+test("keeps AI copilot controls hidden while the feature is disabled", async ({
+  page,
+}) => {
+  await visitApp(page);
+
+  const jobCard = page.locator("article").filter({
+    hasText: "Acme Robotics - QA Automation Engineer",
+  });
+  await jobCard.getByRole("button", { name: "View" }).click();
+
+  await expect(page.getByRole("button", { name: "Summarize Job" })).toHaveCount(0);
+  await expect(page.getByText("AI Copilot: Disabled")).toBeVisible();
+});
+
+test("opens the AI panel and shows generated notes when copilot is enabled", async ({
+  page,
+}) => {
+  await page.route("**/api/ai/notes", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        result:
+          "- Prioritize release quality examples.\n- Expect conversation about CI ownership and regression strategy.",
+      }),
+    });
+  });
+
+  await visitApp(page, true);
+  await expect(page.getByText("AI Copilot: Enabled")).toBeVisible();
+
+  const jobCard = page.locator("article").filter({
+    hasText: "Acme Robotics - QA Automation Engineer",
+  });
+  await jobCard.getByRole("button", { name: "View" }).click();
+  await page.getByRole("button", { name: "Generate Notes" }).click();
+
+  const aiPanel = page.locator("aside").filter({
+    has: page.getByRole("heading", { name: "Smart Notes" }),
+  });
+  await expect(
+    aiPanel.getByText("Prioritize release quality examples.", { exact: false })
+  ).toBeVisible();
+  await expect(
+    page.getByText("Saved Smart Notes", { exact: false })
+  ).toBeVisible();
+});
+
+test("shows a graceful retry state when the AI route fails", async ({ page }) => {
+  await page.route("**/api/ai/follow-up", async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: false,
+        error: "Provider unavailable",
+        code: "provider_error",
+      }),
+    });
+  });
+
+  await visitApp(page, true);
+  await expect(page.getByText("AI Copilot: Enabled")).toBeVisible();
+
+  const jobCard = page.locator("article").filter({
+    hasText: "Acme Robotics - QA Automation Engineer",
+  });
+  await jobCard.getByRole("button", { name: "View" }).click();
+  await page.getByRole("button", { name: "Suggest Follow-Up" }).click();
+
+  const aiPanel = page.locator("aside").filter({
+    has: page.getByRole("heading", { name: "Suggested Follow-Up" }),
+  });
+  await expect(aiPanel.getByText("Provider unavailable")).toBeVisible();
+  await expect(aiPanel.getByRole("button", { name: "Retry" })).toBeVisible();
 });

@@ -16,12 +16,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Expanded README sections for demo, problem, architecture, testing, and roadmap
 - YouTube walkthrough video link in project and profile documentation
 - Additional Playwright E2E coverage for job search and status filtering flows
+- AI Copilot feature flag, provider abstraction, and server routes for summaries, notes, and follow-ups
+- Disabled-by-default AI UI controls and assistant panel inside job details
+- Playwright coverage for AI-disabled, AI-enabled, and AI-error states
 
 ### Changed
 
 - Dashboard `Start Building` action now scrolls to Add Job and focuses the Company input
 - Playwright CI config now captures screenshots on failure and records browser sessions in CI
 - README top badges now highlight CI, Playwright status, deployment, and license
+- Dashboard copy and metadata now describe AI as implemented architecture that is disabled by default in the public build
 
 ## [1.0.0] - 2026-03-06
 

@@ -9,7 +9,7 @@
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/TailwindCSS-v4-38BDF8?logo=tailwindcss&logoColor=white)
 
-A local-first job search management app built with Next.js, React, and Tailwind.
+A local-first job search management app built with Next.js, React, and Tailwind, with AI copilot architecture implemented and disabled by default.
 
 The product is designed to support a practical end-to-end workflow:
 
@@ -101,13 +101,21 @@ interviews, follow-ups, and recent activity.
 - Import JSON backup with validation and overwrite confirmation
 - Immediate UI refresh after successful restore
 
+### AI Copilot
+- Feature-flagged AI service layer and secure server routes
+- Job description summarizer
+- Smart job notes generator
+- Follow-up message generator
+- Disabled by default in the public build to avoid API cost
+
 ## Tech Stack
 
 - Next.js 16 (App Router)
 - React 19
 - TypeScript
 - Tailwind CSS v4
-- localStorage persistence (no backend in MVP)
+- localStorage persistence
+- Next.js server routes for optional AI requests
 
 ## Tech Decisions
 
@@ -123,6 +131,7 @@ Current implementation is intentionally single-page and local-first:
 - Main UI and state orchestration: `app/page.tsx`
 - Global styles/theme tokens: `app/globals.css`
 - App shell metadata: `app/layout.tsx`
+- AI routes and provider layer: `app/api/ai/*`, `app/lib/ai/*`
 
 System view:
 
@@ -131,6 +140,9 @@ User
   -> Next.js Frontend
     -> React State
       -> localStorage
+    -> AI Feature Flag
+      -> Next.js AI Routes
+        -> OpenAI API (optional, disabled by default)
 ```
 
 Data lifecycle:
@@ -139,7 +151,8 @@ Data lifecycle:
 2. Normalize records to keep backward compatibility
 3. Persist each entity set through dedicated `useEffect` syncs
 4. Render views (Dashboard, Applications, Recruiters, Interviews)
-5. Open detail/edit panels for focused record operations
+5. Optionally call AI routes for summaries, notes, and follow-ups when enabled
+6. Open detail/edit panels for focused record operations
 
 ## Data Model (MVP)
 
@@ -149,11 +162,16 @@ Data lifecycle:
 - `title`
 - `status`
 - `note`
+- `jobDescription?`
 - `jobLink?`
 - `linkedRecruiterId?`
 - `nextFollowUpDate?`
 - `lastContactDate?`
 - `followUpStatus?`
+- `aiSummary?`
+- `aiNotes?`
+- `aiFollowUpSuggestion?`
+- `aiUpdatedAt?`
 - `createdAt?`
 
 ### Recruiter
@@ -194,6 +212,13 @@ Data lifecycle:
 - `ai_job_search_recruiters_v1`
 - `ai_job_search_interviews_v1`
 - `ai_job_search_activity_v1`
+
+## AI Configuration
+
+- Feature flag: `NEXT_PUBLIC_FEATURE_AI_COPILOT`
+- Provider secret: `OPENAI_API_KEY`
+- Default behavior: AI stays hidden and inactive unless explicitly enabled
+- Security: AI requests run through `app/api/ai/*`; the API key is never exposed client-side
 
 ## Run Locally
 
@@ -245,7 +270,7 @@ v1.1
 - shared data across devices
 
 v1.2
-- AI resume tailoring assistant
+- resume vs job match scoring
 - interview question generation support
 
 v1.3
@@ -269,6 +294,7 @@ This project demonstrates:
 - Strong local data modeling and backward-compatible persistence
 - Connected workflow across entities (jobs, recruiters, interviews, follow-ups)
 - Operational UX (dashboard insights, details panels, quick actions)
+- Feature-flagged AI architecture with server-side provider isolation
 - Practical data portability via JSON backup/restore
 
 ## MVP Status

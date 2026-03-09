@@ -22,6 +22,10 @@ export default defineConfig({
   ],
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3000",
+    env: {
+      ...process.env,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "e2e-openai-key",
+    },
     url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

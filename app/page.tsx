@@ -2,6 +2,17 @@
 
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 
+import { AIButton } from "./components/ai/AIButton";
+import { AIPanel } from "./components/ai/AIPanel";
+import {
+  fetchAiCopilotStatus,
+  isAiCopilotRequestedOnClient,
+  requestFollowUp,
+  requestJobNotes,
+  requestJobSummary,
+} from "./lib/ai/browser";
+import type { AiAction, AiAvailabilityReason } from "./lib/ai/types";
+
 type JobStatus = "Saved" | "Applied" | "Interview" | "Rejected";
 type FollowUpStatus = "Not needed" | "Planned" | "Done" | "Overdue";
 type ViewMode = "Dashboard" | "Applications" | "Recruiters" | "Interviews";
@@ -36,11 +47,16 @@ type Job = {
   title: string;
   status: JobStatus;
   note: string;
+  jobDescription?: string;
   jobLink?: string;
   linkedRecruiterId?: number;
   nextFollowUpDate?: string;
   lastContactDate?: string;
   followUpStatus?: FollowUpStatus;
+  aiSummary?: string;
+  aiNotes?: string;
+  aiFollowUpSuggestion?: string;
+  aiUpdatedAt?: number;
   createdAt?: number;
 };
 
@@ -79,6 +95,23 @@ type ActivityEvent = {
   jobId?: number;
   recruiterId?: number;
   interviewId?: number;
+};
+
+type AiRuntimeState = {
+  requested: boolean;
+  enabled: boolean;
+  checked: boolean;
+  reason: AiAvailabilityReason;
+};
+
+type AiPanelState = {
+  action: AiAction;
+  jobId: number;
+  title: string;
+  description: string;
+  result: string;
+  error: string;
+  isLoading: boolean;
 };
 
 const STORAGE_KEY = "ai_job_search_jobs_v1";
@@ -133,6 +166,8 @@ const defaultJobs: Job[] = [
     title: "QA Automation Engineer",
     status: "Applied",
     note: "Submitted on Monday",
+    jobDescription:
+      "Own end-to-end test automation for robotics software releases, improve CI signal quality, partner with developers on regression coverage, and support release readiness reviews across web and embedded surfaces.",
     jobLink: "https://example.com/jobs/acme-qa-automation",
     linkedRecruiterId: 102,
     nextFollowUpDate: "2026-03-07",
@@ -146,6 +181,8 @@ const defaultJobs: Job[] = [
     title: "Machine Learning Engineer",
     status: "Saved",
     note: "Need referral before applying",
+    jobDescription:
+      "Build production ML systems for ranking and personalization, collaborate with platform engineers on model serving, and translate offline experimentation into reliable online improvements.",
     createdAt: 1739923200000,
   },
 ];
@@ -343,6 +380,17 @@ function isFollowUpSoon(nextFollowUpDate?: string): boolean {
   return diffInDays >= 0 && diffInDays <= 3;
 }
 
+function compactTextPreview(text?: string, maxLength = 140): string {
+  if (!text) return "";
+
+  const flattened = text.replace(/\s+/g, " ").trim();
+  if (flattened.length <= maxLength) {
+    return flattened;
+  }
+
+  return `${flattened.slice(0, maxLength - 3)}...`;
+}
+
 function toLocalDateInput(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -445,6 +493,26 @@ function getFollowUpMeta(job: Job): {
   };
 }
 
+function getAiStatusLabel(aiRuntime: AiRuntimeState): string {
+  if (aiRuntime.enabled) {
+    return "AI Copilot: Enabled";
+  }
+
+  if (!aiRuntime.requested) {
+    return "AI Copilot: Disabled";
+  }
+
+  if (!aiRuntime.checked) {
+    return "AI Copilot: Checking";
+  }
+
+  if (aiRuntime.reason === "missing_api_key") {
+    return "AI Copilot: Missing API key";
+  }
+
+  return "AI Copilot: Disabled";
+}
+
 export default function Home() {
   const [activeView, setActiveView] = useState<ViewMode>("Dashboard");
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -463,6 +531,7 @@ export default function Home() {
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<JobStatus>("Saved");
   const [note, setNote] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
   const [jobLink, setJobLink] = useState("");
   const [formError, setFormError] = useState("");
   const [editingJobId, setEditingJobId] = useState<number | null>(null);
@@ -470,6 +539,7 @@ export default function Home() {
   const [editTitle, setEditTitle] = useState("");
   const [editStatus, setEditStatus] = useState<JobStatus>("Saved");
   const [editNote, setEditNote] = useState("");
+  const [editJobDescription, setEditJobDescription] = useState("");
   const [editJobLink, setEditJobLink] = useState("");
   const [editError, setEditError] = useState("");
 
@@ -546,6 +616,13 @@ export default function Home() {
   >("All");
   const [interviewSortOrder, setInterviewSortOrder] =
     useState<InterviewSortOrder>("Upcoming");
+  const [aiRuntime, setAiRuntime] = useState<AiRuntimeState>({
+    requested: false,
+    enabled: false,
+    checked: true,
+    reason: "feature_disabled",
+  });
+  const [aiPanel, setAiPanel] = useState<AiPanelState | null>(null);
 
   useEffect(() => {
     try {
@@ -567,11 +644,16 @@ export default function Home() {
                 title?: unknown;
                 status?: unknown;
                 note?: unknown;
+                jobDescription?: unknown;
                 jobLink?: unknown;
                 linkedRecruiterId?: unknown;
                 nextFollowUpDate?: unknown;
                 lastContactDate?: unknown;
                 followUpStatus?: unknown;
+                aiSummary?: unknown;
+                aiNotes?: unknown;
+                aiFollowUpSuggestion?: unknown;
+                aiUpdatedAt?: unknown;
                 createdAt?: unknown;
               };
 
@@ -611,6 +693,10 @@ export default function Home() {
                   typeof candidate.note === "string" && candidate.note.trim()
                     ? candidate.note.trim()
                     : "Recently added",
+                ...(typeof candidate.jobDescription === "string" &&
+                candidate.jobDescription.trim()
+                  ? { jobDescription: candidate.jobDescription.trim() }
+                  : {}),
                 ...(normalizedJobLink ? { jobLink: normalizedJobLink } : {}),
                 ...(typeof candidate.linkedRecruiterId === "number"
                   ? { linkedRecruiterId: candidate.linkedRecruiterId }
@@ -623,6 +709,24 @@ export default function Home() {
                   : {}),
                 ...(normalizedFollowUpStatus
                   ? { followUpStatus: normalizedFollowUpStatus }
+                  : {}),
+                ...(typeof candidate.aiSummary === "string" &&
+                candidate.aiSummary.trim()
+                  ? { aiSummary: candidate.aiSummary.trim() }
+                  : {}),
+                ...(typeof candidate.aiNotes === "string" &&
+                candidate.aiNotes.trim()
+                  ? { aiNotes: candidate.aiNotes.trim() }
+                  : {}),
+                ...(typeof candidate.aiFollowUpSuggestion === "string" &&
+                candidate.aiFollowUpSuggestion.trim()
+                  ? {
+                      aiFollowUpSuggestion:
+                        candidate.aiFollowUpSuggestion.trim(),
+                    }
+                  : {}),
+                ...(typeof candidate.aiUpdatedAt === "number"
+                  ? { aiUpdatedAt: candidate.aiUpdatedAt }
                   : {}),
                 ...(typeof candidate.createdAt === "number"
                   ? { createdAt: candidate.createdAt }
@@ -892,6 +996,57 @@ export default function Home() {
   }, [activities, isHydrated]);
 
   useEffect(() => {
+    if (!isAiCopilotRequestedOnClient()) {
+      setAiRuntime({
+        requested: false,
+        enabled: false,
+        checked: true,
+        reason: "feature_disabled",
+      });
+      return;
+    }
+
+    let isActive = true;
+
+    setAiRuntime((current) => ({
+      ...current,
+      requested: true,
+      checked: false,
+    }));
+
+    fetchAiCopilotStatus()
+      .then((status) => {
+        if (!isActive) return;
+
+        setAiRuntime({
+          requested: true,
+          enabled: status.enabled,
+          checked: true,
+          reason: status.reason,
+        });
+
+        if (!status.enabled) {
+          setAiPanel(null);
+        }
+      })
+      .catch(() => {
+        if (!isActive) return;
+
+        setAiRuntime({
+          requested: true,
+          enabled: false,
+          checked: true,
+          reason: "missing_api_key",
+        });
+        setAiPanel(null);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!importError) return;
     const timeoutId = window.setTimeout(() => {
       setImportError("");
@@ -937,6 +1092,7 @@ export default function Home() {
         setEditTitle("");
         setEditStatus("Saved");
         setEditNote("");
+        setEditJobDescription("");
         setEditJobLink("");
         setEditError("");
         return;
@@ -954,6 +1110,7 @@ export default function Home() {
         setDetailsJobId(null);
         setFollowUpDraftDate("");
         setFollowUpError("");
+        setAiPanel(null);
         setIsLinkRecruiterMode(false);
         setLinkRecruiterSelection("");
         setLinkRecruiterError("");
@@ -1253,6 +1410,14 @@ export default function Home() {
       .slice(0, 12);
   }, [activities, selectedRecruiter]);
 
+  const aiStatusLabel = useMemo(() => getAiStatusLabel(aiRuntime), [aiRuntime]);
+  const selectedJobAiPanel =
+    aiPanel && selectedJob && aiPanel.jobId === selectedJob.id ? aiPanel : null;
+  const activeAiAction =
+    selectedJobAiPanel && selectedJobAiPanel.isLoading
+      ? selectedJobAiPanel.action
+      : null;
+
   function addActivity(
     entry: Omit<ActivityEvent, "id" | "timestamp"> & {
       timestamp?: number;
@@ -1330,6 +1495,129 @@ export default function Home() {
     }
   }
 
+  function handleCloseAiPanel() {
+    setAiPanel(null);
+  }
+
+  function updateJobAiFields(
+    jobId: number,
+    updates: Pick<
+      Job,
+      "aiSummary" | "aiNotes" | "aiFollowUpSuggestion" | "aiUpdatedAt"
+    >
+  ) {
+    setJobs((prev) =>
+      prev.map((job) => (job.id === jobId ? { ...job, ...updates } : job))
+    );
+  }
+
+  async function handleRunAiAction(action: AiAction) {
+    if (!selectedJob || !aiRuntime.enabled) return;
+
+    const actionTitles: Record<AiAction, string> = {
+      summarize: "Job Description Summary",
+      notes: "Smart Notes",
+      "follow-up": "Suggested Follow-Up",
+    };
+    const actionDescriptions: Record<AiAction, string> = {
+      summarize:
+        "Condense the saved job description into a quick interview prep brief.",
+      notes:
+        "Generate concise tactical notes you can reuse while reviewing this role.",
+      "follow-up":
+        "Draft a recruiter follow-up aligned to the current job status.",
+    };
+
+    const nextPanel: AiPanelState = {
+      action,
+      jobId: selectedJob.id,
+      title: actionTitles[action],
+      description: actionDescriptions[action],
+      result: "",
+      error: "",
+      isLoading: true,
+    };
+
+    if (action === "summarize" && !selectedJob.jobDescription?.trim()) {
+      setAiPanel({
+        ...nextPanel,
+        isLoading: false,
+        error: "Add a job description before running the summarizer.",
+      });
+      return;
+    }
+
+    setAiPanel(nextPanel);
+
+    try {
+      let result = "";
+
+      if (action === "summarize") {
+        result = await requestJobSummary({
+          description: selectedJob.jobDescription ?? "",
+        });
+        updateJobAiFields(selectedJob.id, {
+          aiSummary: result,
+          aiNotes: selectedJob.aiNotes,
+          aiFollowUpSuggestion: selectedJob.aiFollowUpSuggestion,
+          aiUpdatedAt: Date.now(),
+        });
+      }
+
+      if (action === "notes") {
+        result = await requestJobNotes({
+          job: {
+            company: selectedJob.company,
+            title: selectedJob.title,
+            status: selectedJob.status,
+            note: selectedJob.note,
+            jobDescription: selectedJob.jobDescription,
+          },
+        });
+        updateJobAiFields(selectedJob.id, {
+          aiSummary: selectedJob.aiSummary,
+          aiNotes: result,
+          aiFollowUpSuggestion: selectedJob.aiFollowUpSuggestion,
+          aiUpdatedAt: Date.now(),
+        });
+      }
+
+      if (action === "follow-up") {
+        result = await requestFollowUp({
+          company: selectedJob.company,
+          role: selectedJob.title,
+          status: selectedJob.status,
+        });
+        updateJobAiFields(selectedJob.id, {
+          aiSummary: selectedJob.aiSummary,
+          aiNotes: selectedJob.aiNotes,
+          aiFollowUpSuggestion: result,
+          aiUpdatedAt: Date.now(),
+        });
+      }
+
+      setAiPanel({
+        ...nextPanel,
+        isLoading: false,
+        result,
+      });
+    } catch (error) {
+      setAiPanel({
+        ...nextPanel,
+        isLoading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "AI Copilot failed unexpectedly.",
+      });
+    }
+  }
+
+  function handleRetryAiAction() {
+    if (!selectedJobAiPanel) return;
+    void handleRunAiAction(selectedJobAiPanel.action);
+  }
+
   function normalizeImportedJobs(rawJobs: unknown[]): Job[] {
     return rawJobs
       .map((item, index): Job | null => {
@@ -1357,6 +1645,9 @@ export default function Home() {
             typeof item.note === "string" && item.note.trim()
               ? item.note.trim()
               : "Recently added",
+          ...(typeof item.jobDescription === "string" && item.jobDescription.trim()
+            ? { jobDescription: item.jobDescription.trim() }
+            : {}),
           ...(normalizedJobLink ? { jobLink: normalizedJobLink } : {}),
           ...(typeof item.linkedRecruiterId === "number"
             ? { linkedRecruiterId: item.linkedRecruiterId }
@@ -1369,6 +1660,19 @@ export default function Home() {
             : {}),
           ...(normalizedFollowUpStatus
             ? { followUpStatus: normalizedFollowUpStatus }
+            : {}),
+          ...(typeof item.aiSummary === "string" && item.aiSummary.trim()
+            ? { aiSummary: item.aiSummary.trim() }
+            : {}),
+          ...(typeof item.aiNotes === "string" && item.aiNotes.trim()
+            ? { aiNotes: item.aiNotes.trim() }
+            : {}),
+          ...(typeof item.aiFollowUpSuggestion === "string" &&
+          item.aiFollowUpSuggestion.trim()
+            ? { aiFollowUpSuggestion: item.aiFollowUpSuggestion.trim() }
+            : {}),
+          ...(typeof item.aiUpdatedAt === "number"
+            ? { aiUpdatedAt: item.aiUpdatedAt }
             : {}),
           ...(typeof item.createdAt === "number"
             ? { createdAt: item.createdAt }
@@ -1583,6 +1887,7 @@ export default function Home() {
   function handleSaveJob() {
     const trimmedCompany = company.trim();
     const trimmedTitle = title.trim();
+    const trimmedJobDescription = jobDescription.trim();
 
     if (!trimmedCompany || !trimmedTitle) {
       setFormError("Company and Job title are required before saving.");
@@ -1595,6 +1900,7 @@ export default function Home() {
       title: trimmedTitle,
       status,
       note: note.trim() || "Recently added",
+      ...(trimmedJobDescription ? { jobDescription: trimmedJobDescription } : {}),
       jobLink: normalizeLink(jobLink),
       followUpStatus: "Not needed",
       createdAt: Date.now(),
@@ -1610,6 +1916,7 @@ export default function Home() {
     setTitle("");
     setStatus("Saved");
     setNote("");
+    setJobDescription("");
     setJobLink("");
     setFormError("");
   }
@@ -1643,6 +1950,7 @@ export default function Home() {
     setInterviews((prev) => prev.filter((interview) => interview.jobId !== id));
     if (detailsJobId === id) {
       setDetailsJobId(null);
+      setAiPanel(null);
     }
     if (editingJobId === id) {
       handleCloseEdit();
@@ -1661,6 +1969,7 @@ export default function Home() {
     setDetailsSource(source);
     setFollowUpDraftDate(selected?.nextFollowUpDate ?? "");
     setFollowUpError("");
+    setAiPanel(null);
     setDetailsRecruiterId(null);
     setIsLinkRecruiterMode(false);
     setLinkRecruiterSelection("");
@@ -1671,6 +1980,7 @@ export default function Home() {
     setDetailsJobId(null);
     setFollowUpDraftDate("");
     setFollowUpError("");
+    setAiPanel(null);
     setIsLinkRecruiterMode(false);
     setLinkRecruiterSelection("");
     setLinkRecruiterError("");
@@ -1687,6 +1997,7 @@ export default function Home() {
     setRecruiterSourceJobId(source === "JobDetails" ? sourceJobId ?? null : null);
     setRecruiterSourceJobView(sourceJobView ?? "Dashboard");
     setDetailsJobId(null);
+    setAiPanel(null);
   }
 
   function handleCloseRecruiterDetails() {
@@ -1949,6 +2260,7 @@ export default function Home() {
     setEditTitle(job.title);
     setEditStatus(job.status);
     setEditNote(job.note);
+    setEditJobDescription(job.jobDescription ?? "");
     setEditJobLink(job.jobLink ?? "");
     setEditError("");
   }
@@ -1959,6 +2271,7 @@ export default function Home() {
     setEditTitle("");
     setEditStatus("Saved");
     setEditNote("");
+    setEditJobDescription("");
     setEditJobLink("");
     setEditError("");
   }
@@ -1968,6 +2281,7 @@ export default function Home() {
 
     const trimmedCompany = editCompany.trim();
     const trimmedTitle = editTitle.trim();
+    const trimmedJobDescription = editJobDescription.trim();
 
     if (!trimmedCompany || !trimmedTitle) {
       setEditError("Company and Job title are required.");
@@ -1987,6 +2301,9 @@ export default function Home() {
               title: trimmedTitle,
               status: editStatus,
               note: editNote.trim() || "Recently updated",
+              ...(trimmedJobDescription
+                ? { jobDescription: trimmedJobDescription }
+                : { jobDescription: undefined }),
               jobLink: normalizedJobLink,
             }
           : job
@@ -2329,6 +2646,7 @@ export default function Home() {
     setInterviewNotes("");
     setInterviewError("");
     setDetailsJobId(null);
+    setAiPanel(null);
   }
 
   function handleSaveInterviewEdit() {
@@ -2485,6 +2803,7 @@ export default function Home() {
               <p>Saved jobs: {jobs.length}</p>
               <p className="mt-1">Recruiters tracked: {recruiters.length}</p>
               <p className="mt-1">Interviews tracked: {interviews.length}</p>
+              <p className="mt-1">{aiStatusLabel}</p>
             </div>
           </aside>
 
@@ -2496,12 +2815,12 @@ export default function Home() {
                     Project Kickoff
                   </p>
                   <h2 className="mt-5 max-w-4xl text-3xl leading-tight font-semibold md:text-5xl">
-                    Build an AI copilot that makes job search execution systematic.
+                    Track your search now. Turn on AI Copilot when you are ready.
                   </h2>
                   <p className="mt-4 max-w-2xl text-base text-[var(--text-muted)] md:text-lg">
-                    This starter homepage is your baseline. Next step is wiring real
-                    data flows for jobs, outreach, resume tailoring, and interview
-                    prep.
+                    The workflow is live today with jobs, outreach, interviews, and
+                    follow-ups. AI routes, service abstractions, and UI hooks are wired
+                    in, but disabled by default in the public build.
                   </p>
                   <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
                     <span className="rounded-full border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-1 font-medium">
@@ -2880,6 +3199,12 @@ export default function Home() {
                       placeholder="Note (optional)"
                       className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 text-sm outline-none focus:border-slate-500"
                     />
+                    <textarea
+                      value={jobDescription}
+                      onChange={(event) => setJobDescription(event.target.value)}
+                      placeholder="Job description (optional)"
+                      className="min-h-28 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 text-sm outline-none focus:border-slate-500 md:col-span-2"
+                    />
                     <input
                       value={jobLink}
                       onChange={(event) => setJobLink(event.target.value)}
@@ -2926,6 +3251,11 @@ export default function Home() {
                               <p className="text-sm text-[var(--text-muted)]">
                                 {job.note}
                               </p>
+                              {aiRuntime.enabled && job.aiNotes ? (
+                                <p className="mt-2 text-xs text-[var(--text-muted)]">
+                                  AI note: {compactTextPreview(job.aiNotes, 120)}
+                                </p>
+                              ) : null}
                               <span
                                 className={`mt-1 inline-block rounded-full px-2 py-1 text-xs font-medium ${followUp.badgeClass}`}
                               >
@@ -3042,6 +3372,11 @@ export default function Home() {
                               <p className="text-sm text-[var(--text-muted)]">
                                 {job.note}
                               </p>
+                              {aiRuntime.enabled && job.aiNotes ? (
+                                <p className="mt-2 text-xs text-[var(--text-muted)]">
+                                  AI note: {compactTextPreview(job.aiNotes, 120)}
+                                </p>
+                              ) : null}
                               <span
                                 className={`mt-1 inline-block rounded-full px-2 py-1 text-xs font-medium ${followUp.badgeClass}`}
                               >
@@ -3668,6 +4003,21 @@ export default function Home() {
 
                   <div>
                     <p className="text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                      Job Description
+                    </p>
+                    {selectedJob.jobDescription ? (
+                      <p className="mt-1 whitespace-pre-wrap text-sm">
+                        {selectedJob.jobDescription}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-sm text-[var(--text-muted)]">
+                        No job description saved yet.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
                       Job Link
                     </p>
                     {selectedJob.jobLink ? (
@@ -3692,6 +4042,101 @@ export default function Home() {
                       {formatCreatedDate(selectedJob.createdAt)}
                     </p>
                   </div>
+
+                  {aiRuntime.enabled ? (
+                    <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--card-bg)] p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                            AI Copilot
+                          </p>
+                          <p className="mt-1 text-sm text-[var(--text-muted)]">
+                            Run on-demand summaries, notes, and follow-up drafts.
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
+                          Enabled
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <AIButton
+                          label="Summarize Job"
+                          isLoading={activeAiAction === "summarize"}
+                          onClick={() => {
+                            void handleRunAiAction("summarize");
+                          }}
+                        />
+                        <AIButton
+                          label="Generate Notes"
+                          isLoading={activeAiAction === "notes"}
+                          onClick={() => {
+                            void handleRunAiAction("notes");
+                          }}
+                        />
+                        <AIButton
+                          label="Suggest Follow-Up"
+                          isLoading={activeAiAction === "follow-up"}
+                          onClick={() => {
+                            void handleRunAiAction("follow-up");
+                          }}
+                        />
+                      </div>
+
+                      {selectedJob.aiSummary ? (
+                        <div className="mt-4">
+                          <p className="text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                            Saved Summary
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm">
+                            {selectedJob.aiSummary}
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {selectedJob.aiNotes ? (
+                        <div className="mt-4">
+                          <p className="text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                            Saved Smart Notes
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm">
+                            {selectedJob.aiNotes}
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {selectedJob.aiFollowUpSuggestion ? (
+                        <div className="mt-4">
+                          <p className="text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                            Saved Follow-Up Draft
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm">
+                            {selectedJob.aiFollowUpSuggestion}
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {typeof selectedJob.aiUpdatedAt === "number" ? (
+                        <p className="mt-4 text-xs text-[var(--text-muted)]">
+                          Last generated {formatActivityTimestamp(selectedJob.aiUpdatedAt)}
+                        </p>
+                      ) : null}
+
+                      {selectedJobAiPanel ? (
+                        <div className="mt-4">
+                          <AIPanel
+                            title={selectedJobAiPanel.title}
+                            description={selectedJobAiPanel.description}
+                            result={selectedJobAiPanel.result}
+                            error={selectedJobAiPanel.error}
+                            isLoading={selectedJobAiPanel.isLoading}
+                            onRetry={handleRetryAiAction}
+                            onClose={handleCloseAiPanel}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--card-bg)] p-4">
                     <p className="text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">
@@ -4511,6 +4956,12 @@ export default function Home() {
                 onChange={(event) => setEditNote(event.target.value)}
                 placeholder="Note"
                 className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 text-sm outline-none focus:border-slate-500"
+              />
+              <textarea
+                value={editJobDescription}
+                onChange={(event) => setEditJobDescription(event.target.value)}
+                placeholder="Job description (optional)"
+                className="min-h-28 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 text-sm outline-none focus:border-slate-500"
               />
               <input
                 value={editJobLink}

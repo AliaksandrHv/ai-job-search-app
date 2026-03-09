@@ -15,7 +15,8 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "AI Job Search App",
-  description: "Kickoff workspace for building an AI-powered job search tool.",
+  description:
+    "Local-first job search copilot with AI architecture wired in and disabled by default.",
 };
 
 export default function RootLayout({
