@@ -4,13 +4,13 @@ import {
   AI_COPILOT_OVERRIDE_HEADER,
   aiCopilotDevOverrideAllowed,
   features,
-} from "../../config/features";
+} from "@/config/features";
 import type {
   AiAvailabilityReason,
   AiErrorCode,
   AiStatusResponse,
   JobAiContext,
-} from "./types";
+} from "@/lib/ai/types";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/responses";
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";

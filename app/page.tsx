@@ -2,16 +2,16 @@
 
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 
-import { AIButton } from "./components/ai/AIButton";
-import { AIPanel } from "./components/ai/AIPanel";
+import { AIButton } from "../components/ai/AIButton";
+import { AIPanel } from "../components/ai/AIPanel";
 import {
   fetchAiCopilotStatus,
   isAiCopilotRequestedOnClient,
   requestFollowUp,
   requestJobNotes,
   requestJobSummary,
-} from "./lib/ai/browser";
-import type { AiAction, AiAvailabilityReason } from "./lib/ai/types";
+} from "../lib/ai/browser";
+import type { AiAction, AiAvailabilityReason } from "../lib/ai/types";
 
 type JobStatus = "Saved" | "Applied" | "Interview" | "Rejected";
 type FollowUpStatus = "Not needed" | "Planned" | "Done" | "Overdue";

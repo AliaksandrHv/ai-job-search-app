@@ -131,7 +131,7 @@ Current implementation is intentionally single-page and local-first:
 - Main UI and state orchestration: `app/page.tsx`
 - Global styles/theme tokens: `app/globals.css`
 - App shell metadata: `app/layout.tsx`
-- AI routes and provider layer: `app/api/ai/*`, `app/lib/ai/*`
+- AI routes and provider layer: `app/api/ai/*`, `lib/ai/*`
 
 System view:
 
@@ -281,9 +281,16 @@ v1.3
 
 ```text
 app/
+  api/ai/
   globals.css
   layout.tsx
   page.tsx
+components/
+  ai/
+config/
+  features.ts
+lib/
+  ai/
 ```
 
 ## Portfolio Notes

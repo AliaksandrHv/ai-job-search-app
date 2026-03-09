@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import {
   AiCopilotError,
   getAiCopilotDisabledMessage,
-} from "./copilot";
-import type { AiAvailabilityReason } from "./types";
+} from "@/lib/ai/copilot";
+import type { AiAvailabilityReason } from "@/lib/ai/types";
 
 export function createAiDisabledResponse(reason: AiAvailabilityReason) {
   return NextResponse.json(

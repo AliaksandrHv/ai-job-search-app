@@ -3,7 +3,7 @@ import {
   AI_COPILOT_OVERRIDE_HEADER,
   aiCopilotDevOverrideAllowed,
   features,
-} from "../../config/features";
+} from "@/config/features";
 import type {
   AiErrorCode,
   AiRouteResponse,
@@ -11,7 +11,7 @@ import type {
   GenerateFollowUpRequest,
   GenerateJobNotesRequest,
   SummarizeJobRequest,
-} from "./types";
+} from "@/lib/ai/types";
 
 type AiRequestError = Error & {
   code?: AiErrorCode;

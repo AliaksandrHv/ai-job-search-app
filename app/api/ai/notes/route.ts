@@ -3,12 +3,12 @@ import { NextResponse } from "next/server";
 import {
   generateJobNotes,
   getAiCopilotAvailability,
-} from "../../../lib/ai/copilot";
+} from "@/lib/ai/copilot";
 import {
   createAiDisabledResponse,
   createAiErrorResponse,
   createAiValidationResponse,
-} from "../../../lib/ai/responses";
+} from "@/lib/ai/responses";
 
 export async function POST(request: Request) {
   const availability = getAiCopilotAvailability(request.headers);
